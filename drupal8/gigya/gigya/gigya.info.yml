@@ -1,0 +1,11 @@
+name: Gigya
+type: module
+description: 'Gigya core module'
+package: Gigya
+# core: 8.x
+configure: gigya.admin.form
+
+version: '8.x-2.8'
+core: '8.x'
+project: 'gigya'
+datestamp: 1494803025

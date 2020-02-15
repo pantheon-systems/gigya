@@ -1,0 +1,8 @@
+gigya:
+  language: 'Auto'
+  languageFallback: 'en'
+  keyPath: 'modules/contrib/gigya/gigya/cli/a.key'
+  gigyaDebugMode: false
+  globalParameters: { bypassCookiePolicy : 'never' , enabledProviders : '*', sessionExpiration : -1 }
+  enableRaaS: true
+  fieldMapping  : { uuid : 'UID' }
