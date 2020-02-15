@@ -1,0 +1,7 @@
+name = "Gigya - Customer Identity Management - delete"
+description = "Sync deleted users between gigya and drupal"
+package = Gigya
+core = 7.x
+php = 5.2
+
+dependencies[] = gigya

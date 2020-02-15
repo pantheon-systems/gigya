@@ -1,0 +1,145 @@
+<?php
+
+/**
+ * @file
+ * Update and uninstall functions for the Gigya module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function gigya_install() {
+  // Set our module weight heavier than content profile registration.
+  // TODO Please review this query:
+  /* db_query("UPDATE {system} SET weight = 5 WHERE name = 'gigya'") */
+  db_update('system')
+    ->fields(array('weight' => 5))
+    ->condition('name', 'gigya')
+    ->execute();
+
+  variable_set('gigyaSessionControl', 'gigya');
+  variable_set('gigyaSyncBase', 'GigyaUID');
+  _gigya_create_gigya_ids_table();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gigya_uninstall() {
+
+  // Delete variables.
+  $variables = db_select('variable', 'v')
+    ->fields('v', array('name'))
+    ->condition('name', 'gigya%%', 'LIKE')
+    ->execute()
+    ->fetchCol();
+  foreach ($variables as $var) {
+    variable_del($var);
+  }
+
+  // Delete actions.
+  $actions = db_select('actions', 'a')
+    ->fields('a', array('aid'))
+    ->condition('callback', 'gigya%%', 'LIKE')
+    ->execute()
+    ->fetchCol();
+  foreach ($actions as $action) {
+    actions_delete($action);
+  }
+
+  // Sharebar variables.
+  variable_del('sharebar_user_message');
+  variable_del('sharebar_title');
+  variable_del('sharebar_description');
+  variable_del('sharebar_action_link_title');
+  variable_del('sharebar_action_link_href');
+  variable_del('sharebar_buttons');
+  variable_del('sharebar_nodetypes');
+  variable_del('sharebar_showcounts');
+
+  // Comments variables.
+  variable_del('gigya_comments_categoryid');
+  variable_del('gigya_comments_container');
+  if (db_table_exists('gigya_ids')) {
+    db_delete('gigya_ids');
+  }
+
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function gigya_requirements($phase) {
+  $requirements = array();
+  if ($phase == 'install') {
+    if (!function_exists('hash_hmac')) {
+      $requirements['gigya_hash_hmac'] = array(
+        'title' => 'Gigya requires the PHP Hash extension',
+        'description' => 'The <a href="http://us2.php.net/manual/en/book.hash.php">PHP Hash extension</a> is required for the Gigya module to function properly',
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+    if (!function_exists('curl_init')) {
+      $requirements['gigya_curl'] = array(
+        'title' => 'Gigya requires the PHP Curl extension',
+        'description' => 'The <a href="http://us2.php.net/manual/en/book.curl.php">PHP Curl extension</a> is required for the Gigya module to function properly',
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+
+  }
+
+  return $requirements;
+}
+
+function gigya_update_2() {
+  if (!db_table_exists('gigya_ids')) {
+    _gigya_create_gigya_ids_table();
+  }
+}
+
+function gigya_update_10() {
+  $spec = array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'size' => 'tiny',
+    'default' => 0,
+  );
+  db_add_field('gigya_ids', 'gigya_deleted', $spec);
+}
+
+function gigya_update_11() {
+  $spec = array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+  );
+  db_add_field('gigya_ids', 'gigya_deleted_time', $spec);
+}
+
+
+function _gigya_create_gigya_ids_table() {
+  $schema = array();
+
+  $schema['gigya_ids'] = array(
+    'description' => 'The base table for gigya module.',
+    'fields' => array(
+      'duid' => array(
+        'description' => 'Drupal user id',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'guid' => array(
+        'description' => 'Gigya user id',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('duid', 'guid'),
+  );
+  db_create_table('gigya_ids', $schema['gigya_ids']);
+
+}

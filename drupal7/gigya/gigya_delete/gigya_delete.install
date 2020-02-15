@@ -1,0 +1,40 @@
+<?php
+
+/**
+ * @file
+ * Update and uninstall functions for the Gigya Delete module.
+ */
+
+
+/**
+ * Implements hook_install().
+ */
+function gigya_delete_install() {
+  _gigya_delete_create_gigya_delete_files_table();
+}
+
+
+function _gigya_delete_create_gigya_delete_files_table() {
+  $schema = array();
+
+  $schema['gigya_delete_files'] = array(
+    'description' => 'The delete files job table.',
+    'fields' => array(
+      'filename' => array(
+        'description' => 'file name',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'status' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+    ),
+    'primary key' => array('filename'),
+  );
+  db_create_table('gigya_delete_files', $schema['gigya_delete_files']);
+
+}

@@ -1,0 +1,37 @@
+diff --git a/docroot/sites/all/modules/contrib/gigya/gigya.module b/docroot/sites/all/modules/contrib/gigya/gigya.module
+index a66d3f7e..96e4df34 100644
+--- a/docroot/sites/all/modules/contrib/gigya/gigya.module
++++ b/docroot/sites/all/modules/contrib/gigya/gigya.module
+@@ -45,6 +45,11 @@ define('GIGYA_MV', 'mayor');
+  */
+ function gigya_init() {
+   global $language;
++
+   // Load the basic include files.
+   module_load_include('inc', 'gigya');
+   $path = drupal_get_path('module', 'gigya');
+@@ -161,7 +166,7 @@ function gigya_init() {
+   // If the user is logged in then attach the Gigya object to the
+   // user object.
+   $gigya_apikey = trim(variable_get('gigya_APIKey', ''));
+-  $is_gigya_login = isset($_COOKIE["gltexp_$gigya_apikey"]) || isset($_COOKIE["glt_$gigya_apikey"]) ? TRUE : FALSE;
++  $is_gigya_login = isset($_COOKIE["STYXKEY-gltexp_$gigya_apikey"]) || isset($_COOKIE["gltexp_$gigya_apikey"])  || isset($_COOKIE["glt_$gigya_apikey"]) ? TRUE : FALSE;
+   if (user_is_logged_in()) {
+     global $user;
+     // Attach the Gigya object to the user object.
+@@ -1926,6 +1931,7 @@ function gigya_raas_ext_cookie_ajax($login = false) {
+         gigya_get_app_secret_key()
+       );
+       setrawcookie('gltexp_' . $api_key, rawurlencode($session_sig), $expiration, '/', $_SERVER['HTTP_HOST']);
++      setrawcookie('STYXKEY-gltexp_' . $api_key, rawurlencode($session_sig), $expiration, '/', $_SERVER['HTTP_HOST']);
+     }
+   }
+ }
+@@ -1943,6 +1949,7 @@ function gigya_should_add_ext_cookie($login) {
+     $api_key =  variable_get('gigya_APIKey', '');
+     $gltexp_cookie = $_COOKIE["gltexp_$api_key"];
+     $glt_cookie = $_COOKIE["glt_$api_key"];
++
+     return !empty($gltexp_cookie) || !empty($glt_cookie);
+   }
+   return TRUE;

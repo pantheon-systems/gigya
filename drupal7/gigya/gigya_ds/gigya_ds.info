@@ -1,0 +1,7 @@
+name = "Gigya - Customer Identity Management - DS"
+description = "Allows sites to utilize the Gigya DS API"
+package = Gigya
+core = 7.x
+php = 5.2
+
+dependencies[] = gigya

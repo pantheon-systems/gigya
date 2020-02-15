@@ -1,0 +1,7 @@
+name = Gigya panels integration
+description = Gigya Panels Integration
+dependencies[] = ctools
+dependencies[] = panels
+dependencies[] = gigya
+package = Gigya
+core = 7.x

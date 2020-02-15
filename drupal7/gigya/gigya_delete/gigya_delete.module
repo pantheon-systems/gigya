@@ -1,0 +1,304 @@
+<?php
+use Aws\S3\S3Client;
+
+
+/**
+ * @file
+ * This module provides a link to Gigya Delete data.
+ *
+ * Development of this module is sponsored by Gigya, Inc.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function gigya_delete_menu() {
+
+  // Add the Login component config tab.
+  $items['admin/config/services/gigya/gigya_delete'] = array(
+    'title' => 'Gigya Delete settings',
+    'description' => 'Gigya Delete settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gigya_delete_admin_form'),
+    'access arguments' => array('administer gigya'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+    'file' => 'gigya_delete.admin.inc',
+  );
+  return $items;
+}
+
+function _gigya_delete_process_guids($guids) {
+  $success = 0;
+  $error = 0;
+  $skipped = 0;
+  $total = 0;
+  try {
+    foreach ($guids as $guid) {
+      if (trim($guid) === '') {
+        continue;
+      }
+      $total++;
+      $mode = variable_get('gigya_delete_mode', 'soft');
+      if ($duid = _gigya_get_duid_by_guid($guid)) {
+        $res = module_invoke_all('gigya_delete', $guid, $duid, $mode);
+        if (in_array(false, $res)) {
+          $skipped++;
+          continue;
+        }
+        if ($mode === 'hard') {
+          _gigya_delete_user($duid, $guid) ? $success++ : $error++;
+        }
+        else {
+          _gigya_set_ids_as_deleted($guid);
+          $success++;
+        }
+      }
+      else {
+        watchdog('gigya_delete', t('no user with guid : @guid', ['@guid' => $guid]));
+        $error++;
+      }
+    }
+  }
+  catch (Exception $exception) {
+    $error++;
+  }
+  _gigya_delete_send_summery_mail($total, $success, $error, $skipped, $mode, variable_get('gigya_delete_success_email'), variable_get('gigya_delete_fail_email'));
+}
+
+
+function _gigya_delete_insert_to_gigya_delete_files($file) {
+  $insert = db_insert('gigya_delete_files');
+  $insert->fields(['filename' => $file]);
+  return $insert->execute();
+}
+
+function _gigya_delete_update_gigya_delete_files_status($file, $status) {
+  $update = db_update('gigya_delete_files');
+  $update->condition('filename' ,$file);
+  $update->fields(['status' => $status]);
+  return $update->execute();
+}
+
+function _gigya_delete_check_if_file_is_new($file) {
+  $select = db_select('gigya_delete_files');
+  $select->condition('filename', $file);
+  $select->addField('gigya_delete_files', 'filename');
+  $res = $select->execute()->fetchAssoc();
+  return $res === false;
+}
+
+function _gigya_delete_user($duid, $guid) {
+  user_delete($duid);
+  _gigya_delete_gigya_id($guid);
+  return true;
+}
+
+function _gigya_delete_send_summery_mail($total, $success, $errors, $skipped ,$mode, $success_email, $error_email) {
+  $type = false;
+  //failure
+  if ($errors > 0 && $success === 0) {
+    $email = $error_email;
+    $type = 'failure';
+  }
+  //success
+  else if ($errors === 0 && ($success > 0 || $skipped > 0)) {
+    $email = $success_email;
+    $type = 'success';
+  }
+  //partial success
+  else if ($errors > 0 && ($success > 0 || $skipped > 0)) {
+    $email = $error_email;
+    $type = 'partial';
+  }
+  if ($type) {
+    drupal_mail('gigya_delete', 'gigya_delete_notify_user', $email, variable_get('language_default'), ['type' => $type, 'total' => $total, 'success' => $success, 'errors' => $errors, 'mode' => $mode, 'skipped' => $skipped]);
+  }
+}
+
+function gigya_delete_mail($key, &$message, $params) {
+  global $base_url;
+  switch ($key) {
+    case 'gigya_delete_notify_user':
+      switch ($params['type']) {
+        case 'success':
+          if ($params['mode'] === 'hard') {
+            $title = t('Users deleted successfully');
+            $body = t('The user deletion job scheduled to run for @domain at @date, @timestamp.... completed successfully. @success out of @total users were deleted and @skipped were handled using custom code.',
+                [
+                  '@domain' => $base_url,
+                  '@timestamp' => time(),
+                  '@success' => $params['success'],
+                  '@skipped' => $params['skipped'],
+                  '@total' => $params['total'],
+                  '@date' => date("Y-m-d"),
+                ]
+              );
+          }
+          else {
+            $title = t('Users marked for deletion');
+            $body = t('The user deletion job scheduled to run for @domain at @date, @timestamp.... completed successfully. @success out of @total users were marked for deletion and @skipped were handled using custom code.',
+              [
+                '@domain' => $base_url,
+                '@timestamp' => time(),
+                '@success' => $params['success'],
+                '@skipped' => $params['skipped'],
+                '@date' => date("Y-m-d"),
+                '@total' => $params['total'],
+              ]
+            );
+          }
+          break;
+        case 'partial':
+          if ($params['mode'] === 'hard') {
+            $title = t('User deletion job completed with errors');
+            $body = t('The user deletion job scheduled to run for @domain at @date, @timestamp.... completed with @errors errors. $success out of @total users were deleted and @skipped were handled using custom code.',
+              [
+                '@domain' => $base_url,
+                '@timestamp' => time(),
+                '@success' => $params['success'],
+                '@skipped' => $params['skipped'],
+                '@errors' => $params['errors'],
+                '@date' => date("Y-m-d"),
+                '@total' => $params['total'],
+              ]
+            );
+          }
+          else {
+            $title = t('User deletion notification job completed with errors');
+            $body = t('The user deletion job scheduled to run for @domain at @date, @timestamp.... completed with @errors errors. $success out of @total users were marked for deletion and @skipped were handled using custom code.',
+              [
+                '@domain' => $base_url,
+                '@timestamp' => time(),
+                '@success' => $params['success'],
+                '@errors' => $params['errors'],
+                '@skipped' => $params['skipped'],
+                '@date' => date("Y-m-d"),
+                '@total' => $params['total'],
+              ]
+            );
+          }
+          break;
+        case 'failure':
+          if ($params['mode'] === 'hard') {
+            $title = t('Failed to delete users');
+            $body = t('The user deletion job scheduled to run for @domain at @date, @timestamp.... has failed. with $[NUMBER_OF_ERRORS] errors. No users were deleted and @skipped were handled using custom code.',
+              [
+                '@domain' => $base_url,
+                '@timestamp' => time(),
+                '@errors' => $params['errors'],
+                '@skipped' => $params['skipped'],
+                '@date' => date("Y-m-d"),
+                '@total' => $params['total'],
+              ]
+            );
+          }
+          else {
+            $title = t('Failed to mark users for deletion');
+            $body = t('The deletion notification job scheduled to run for @domain at @date, @timestamp.... @domain at @timestamp.... has failed. with $[NUMBER_OF_ERRORS] errors. No users were marked for deletion and @skipped were handled using custom code.',
+              [
+                '@domain' => $base_url,
+                '@timestamp' => time(),
+                '@errors' => $params['errors'],
+                '@skipped' => $params['skipped'],
+                '@date' => date("Y-m-d"),
+                '@total' => $params['total'],
+              ]
+            );
+          }
+          break;
+
+      }
+      $message['subject'] = $title;
+      $message['body'] = [$body];
+      watchdog('gigya_delete', $body);
+      break;
+  }
+}
+
+function _gigya_delete_gets3_client() {
+  static $s3 = null;
+  if ($s3 === null) {
+    // Instantiate the client.
+    $s3 = new S3Client(['credentials' =>
+      [
+        'key' => variable_get('gigya_delete_s3_access_key'),
+        'secret' => gigya_decrypt_value(variable_get('gigya_delete_s3_secret_key')),
+      ],'region' => 'us-east-1',
+        'version' => 'latest',
+    ]);
+  }
+
+  return $s3;
+}
+
+function gigya_delete_list_files_from_s3() {
+  $queue = DrupalQueue::get('deleteGuid');
+
+  $s3 = _gigya_delete_gets3_client();
+  $bucket = variable_get('gigya_delete_s3_bucket');
+  $object_key_prefix = variable_get('gigya_delete_s3_object_key_prefix');
+
+  $objects = $s3->getIterator('ListObjects', array('Bucket' => $bucket));
+  watchdog('gigya_delete', count($objects));
+  foreach ($objects as $object) {
+    if (strpos($object['Key'], $object_key_prefix) === 0) {
+      $parts = explode('.', $object['Key']);
+      if ($parts[count($parts) - 1] === 'csv') {
+        if (_gigya_delete_check_if_file_is_new($object['Key'])) {
+          $queue->createItem(['bucket' => $bucket, 'key' => $object['Key']]);
+          _gigya_delete_insert_to_gigya_delete_files($object['Key']);
+        }
+      }
+    }
+  }
+}
+
+function gigya_delete_download_file_data($bucket, $key) {
+  $s3 = _gigya_delete_gets3_client();
+  $result = $s3->getObject(array(
+    'Bucket' => $bucket,
+    'Key'    => $key
+  ));
+  $data = (string) $result->get('Body');
+  return explode(PHP_EOL, $data);
+}
+
+function _gigya_delete_process_queue_item($item) {
+  $bucket = $item['bucket'];
+  $key = $item['key'];
+  try {
+    $uids = gigya_delete_download_file_data($bucket, $key);
+    array_shift($uids);
+    _gigya_delete_process_guids($uids);
+    _gigya_delete_update_gigya_delete_files_status($key, 1);
+  }
+  catch (Exception $exception) {
+    watchdog('gigya_delete', 'error: @msg', ['@msg' => $exception->getMessage()]);
+  }
+}
+
+function gigya_delete_cron() {
+  if (variable_get('gigya_delete_enable')) {
+    watchdog('gigya_delete', 'running cron');
+    $lastrun = variable_get('gigya_delete_cron_last_run', REQUEST_TIME);
+    $diff = (time() - $lastrun) / 60;
+    $frequency = variable_get('gigya_delete_frequency', 60);
+    if ($diff > $frequency) {
+      gigya_delete_list_files_from_s3();
+      variable_set('gigya_delete_cron_last_run', REQUEST_TIME);
+    }
+  }
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function gigya_delete_cron_queue_info() {
+  $queues = array();
+  $queues['deleteGuid'] = array(
+    'worker callback' => '_gigya_delete_process_queue_item', //function to call for each item
+    'time' => 3000, //seconds to spend working on the queue
+  );
+  return $queues;
+}

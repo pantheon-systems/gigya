@@ -1,0 +1,14 @@
+{
+  "name": "drupal/gigya",
+  "description": "Provides S3 integration with Drupal's file system.",
+  "license": "GPL-2.0",
+  "authors": [
+    {
+      "name": "Yuval Perelman",
+      "email": "perelman.yuval@gmail.com"
+    }
+  ],
+  "require": {
+    "aws/aws-sdk-php": "~3.48"
+  }
+}
