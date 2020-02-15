@@ -1,0 +1,41 @@
+diff --git a/docroot/modules/contrib/gigya/gigya_raas/src/GigyaController.php b/docroot/modules/contrib/gigya/gigya_raas/src/GigyaController.php
+index 9ad0339..9498126 100644
+--- a/docroot/modules/contrib/gigya/gigya_raas/src/GigyaController.php
++++ b/docroot/modules/contrib/gigya/gigya_raas/src/GigyaController.php
+@@ -376,23 +376,24 @@
+ 				$gigya_conf = \Drupal::config('gigya.settings');
+ 				$session_time = \Drupal::config('gigya_raas.settings')->get('gigya_raas.session_time');
+ 				$api_key = $gigya_conf->get('gigya.gigya_api_key');
+-				$glt_cookie = $request->cookies->get('glt_' . $api_key);
+-				$token = (!empty(explode('|', $glt_cookie)[0])) ? explode('|', $glt_cookie)[0] : NULL;
++				$gltexp_cookie = $request->cookies->get('gltexp_' . $api_key);
++				$token = (!empty(explode('|', $gltexp_cookie)[0])) ? explode('|', $gltexp_cookie)[0] : NULL;
+ 				$now = $_SERVER['REQUEST_TIME'];
+ 				$session_expiration = strval($now + $session_time);
+ 
+ 				$helper = new GigyaHelper();
+-				$gltexp_cookie = $request->cookies->get('gltexp_' . $api_key);
++				#$gltexp_cookie = $request->cookies->get('STXKEY-gltexp_' . $api_key);
+ 				$gltexp_cookie_timestamp = explode('_', $gltexp_cookie)[0];
+ 				if (empty($gltexp_cookie_timestamp) or (time() < $gltexp_cookie_timestamp))
+ 				{
+-					if (!empty($token))
++					if (empty($token))
+ 					{
+ 						$session_sig = $this->calcDynamicSessionSig(
+ 							$token, $session_expiration, $gigya_conf->get('gigya.gigya_application_key'),
+ 							$helper->decrypt($gigya_conf->get('gigya.gigya_application_secret_key'))
+ 						);
+ 						setrawcookie('gltexp_' . $api_key, rawurlencode($session_sig), time() + (10 * 365 * 24 * 60 * 60), '/', $request->getHost());
++						setrawcookie('STYXKEY-gltexp_' . $api_key, rawurlencode($session_sig), time() + (10 * 365 * 24 * 60 * 60), '/', $request->getHost());
+ 					}
+ 				}
+ 			}
+@@ -413,7 +414,7 @@
+ 			if ($current_user->isAuthenticated() && !$current_user->hasPermission('bypass gigya raas')) {
+ 				$gigya_conf = \Drupal::config('gigya.settings');
+ 				$api_key = $gigya_conf->get('gigya.gigya_api_key');
+-				$gltexp_cookie = $request->cookies->get('gltexp_' . $api_key);
++				$gltexp_cookie = $request->cookies->get('STYXKEY-gltexp_' . $api_key);
+ 				return !empty($gltexp_cookie);
+ 			}
