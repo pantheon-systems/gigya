@@ -19,9 +19,9 @@ Gigya has two types of session dynamic and fixed. When using dynamic session bas
 [![Screenshot](http://dev-mapinas.pantheonsite.io/sites/default/files/gigya2.png)](https://developers.gigya.com/display/GD/Drupal+8)
 
 
-### FAQ
+## FAQ
 
-## How to troubleshoot when glt_xxxx cookie is not being generated
+### How to troubleshoot when glt_xxxx cookie is not being generated
 
 1. Open your browser chrome browser's developers tools check for cookies
 
@@ -32,7 +32,7 @@ Gigya has two types of session dynamic and fixed. When using dynamic session bas
 [![Screenshot](http://dev-mapinas.pantheonsite.io/sites/default/files/cookie2.png)](https://developers.gigya.com/display/GD/Drupal+8)
 
 
-## How to troubleshoot when gltexp_xxxx cookie is not being generated
+### How to troubleshoot when gltexp_xxxx cookie is not being generated
 
 1. Open your browser chrome browser's developers tools check for cookies
 
