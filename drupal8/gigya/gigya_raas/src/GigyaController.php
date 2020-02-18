@@ -376,17 +376,17 @@
 				$gigya_conf = \Drupal::config('gigya.settings');
 				$session_time = \Drupal::config('gigya_raas.settings')->get('gigya_raas.session_time');
 				$api_key = $gigya_conf->get('gigya.gigya_api_key');
-				$gltexp_cookie = $request->cookies->get('gltexp_' . $api_key);
-				$token = (!empty(explode('|', $gltexp_cookie)[0])) ? explode('|', $gltexp_cookie)[0] : NULL;
+				$glt_cookie = $request->cookies->get('glt_' . $api_key);
+				$token = (!empty(explode('|', $glt_cookie)[0])) ? explode('|', $glt_cookie)[0] : NULL;
 				$now = $_SERVER['REQUEST_TIME'];
 				$session_expiration = strval($now + $session_time);
 
 				$helper = new GigyaHelper();
-				#$gltexp_cookie = $request->cookies->get('STXKEY-gltexp_' . $api_key);
+				$gltexp_cookie = $request->cookies->get('STXKEY-gltexp_' . $api_key);
 				$gltexp_cookie_timestamp = explode('_', $gltexp_cookie)[0];
 				if (empty($gltexp_cookie_timestamp) or (time() < $gltexp_cookie_timestamp))
 				{
-					if (empty($token))
+					if (!empty($token))
 					{
 						$session_sig = $this->calcDynamicSessionSig(
 							$token, $session_expiration, $gigya_conf->get('gigya.gigya_application_key'),
@@ -414,8 +414,9 @@
 			if ($current_user->isAuthenticated() && !$current_user->hasPermission('bypass gigya raas')) {
 				$gigya_conf = \Drupal::config('gigya.settings');
 				$api_key = $gigya_conf->get('gigya.gigya_api_key');
-				$gltexp_cookie = $request->cookies->get('STYXKEY-gltexp_' . $api_key);
-				return !empty($gltexp_cookie);
+				$gltexp_cookie = $request->cookies->get('gltexp_' . $api_key);
+				$gltexp_styx_cookie = $request->cookies->get('STYXKEY-gltexp_' . $api_key);
+				return (!empty($gltexp_styx_cookie) || !empty($gltexp_cookie));
 			}
 
 			return TRUE;
